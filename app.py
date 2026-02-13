@@ -1,6 +1,6 @@
 """
-LegalLens v1.3 - Versão LEVE e RÁPIDA para HF Spaces
-✅ 100% CPU • Leitor de PDF • Build rápido • Sem timeouts
+LegalLens v1.4 - Versão LEVE, RÁPIDA e ROBUSTA para HF Spaces
+✅ 100% CPU • Leitor de PDF robusto • Build rápido • Sem timeouts
 """
 
 import os
@@ -129,29 +129,57 @@ class LegalLens:
         }
 
 def extract_text_from_pdf(pdf_file):
-    """Extrai texto de arquivo PDF"""
+    """Extrai texto de arquivo PDF com tratamento robusto de erros"""
     if not PDF_AVAILABLE:
-        return None, "PyPDF2 não disponível"
+        return None, "PyPDF2 não disponível no ambiente"
     
     try:
         with open(pdf_file.name, 'rb') as file:
             pdf_reader = PyPDF2.PdfReader(file)
+            
+            # Verificar se PDF tem páginas
+            if len(pdf_reader.pages) == 0:
+                return None, "PDF vazio - sem páginas para analisar"
+            
             text = ""
+            pages_with_content = 0
             
             for page_num in range(len(pdf_reader.pages)):
                 page = pdf_reader.pages[page_num]
-                page_text = page.extract_text()
-                if page_text:
-                    text += page_text + "\n"
+                try:
+                    page_text = page.extract_text()
+                    # Verificar se o texto extraído é válido
+                    if page_text and isinstance(page_text, str) and page_text.strip():
+                        cleaned_text = re.sub(r'\s+', ' ', page_text.strip())
+                        if len(cleaned_text) > 10:  # Página com conteúdo significativo
+                            text += cleaned_text + " "
+                            pages_with_content += 1
+                except Exception as e:
+                    # Pular página com erro e continuar
+                    continue
             
+            # Limpar texto final
             text = re.sub(r'\s+', ' ', text).strip()
+            
+            # Verificações finais
+            if not text:
+                if pages_with_content == 0:
+                    return None, "PDF não contém texto selecionável (pode ser um PDF escaneado/imagem)"
+                else:
+                    return None, "Texto extraído está vazio ou corrompido"
+            
+            if len(text) < 50:
+                return None, f"Texto extraído muito curto ({len(text)} caracteres). PDF pode ser escaneado ou conter apenas imagens."
+            
             return text, None
             
+    except PyPDF2.errors.PdfReadError as e:
+        return None, "Erro ao ler PDF: Arquivo corrompido ou formato inválido"
     except Exception as e:
-        return None, f"Erro ao ler PDF: {str(e)}"
+        return None, f"Erro inesperado ao processar PDF: {str(e)[:150]}"
 
 def analyze_contract(text_input, pdf_input):
-    """Função principal para análise"""
+    """Função principal para análise com tratamento robusto de PDF"""
     text = ""
     
     # Priorizar PDF se fornecido
@@ -161,11 +189,6 @@ def analyze_contract(text_input, pdf_input):
             return (
                 f"<div style='color:#c62828; padding:20px; background:#ffebee; border-radius:12px; font-size:15px; font-weight:bold; text-align:center;'>❌ {error}</div>",
                 "Erro ao processar PDF"
-            )
-        elif not extracted_text or len(extracted_text) < 50:
-            return (
-                "<div style='color:#d32f2f; padding:20px; text-align:center; background:#ffebee; border-radius:12px; font-size:16px; font-weight:bold;'>⚠️ PDF sem conteúdo suficiente para análise</div>",
-                "PDF vazio ou muito curto"
             )
         text = extracted_text
     elif text_input and len(text_input.strip()) >= 50:
@@ -297,7 +320,7 @@ with gr.Blocks(theme=gr.themes.Soft(), title="LegalLens - Analisador Jurídico")
             </p>
             <div style='background:#ffcdd2; border-radius:14px; padding:15px; margin-top:20px; display:inline-block;'>
                 <p style='margin:0; color:#b71c1c; font-size:16px; font-weight:600;'>
-                    ✅ 100% CPU • ✅ Leitor de PDF • ✅ Build rápido
+                    ✅ 100% CPU • ✅ Leitor de PDF robusto • ✅ Build rápido
                 </p>
             </div>
         </div>
@@ -365,28 +388,28 @@ with gr.Blocks(theme=gr.themes.Soft(), title="LegalLens - Analisador Jurídico")
         outputs=[text_input, pdf_input, result_output]
     )
 
-# Rodapé corrigido
+# Rodapé atualizado
 gr.Markdown("""
 <div style='text-align:center; margin-top:40px; padding:25px; color:#546e7a; font-size:14px; line-height:1.7; max-width:800px; margin-left:auto; margin-right:auto; border-top:1px solid #e0e0e0; background:#fafafa; border-radius:14px;'>
-    <p style='margin:8px 0; font-weight:700; color:#c62828; font-size:16px;'>LegalLens v1.3 • Analisador Jurídico com IA</p>
+    <p style='margin:8px 0; font-weight:700; color:#c62828; font-size:16px;'>LegalLens v1.4 • Analisador Jurídico com IA</p>
     
     <div style='display:flex; justify-content:center; gap:30px; flex-wrap:wrap; margin:20px 0; max-width:700px; margin-left:auto; margin-right:auto; font-size:13px;'>
         <div style='text-align:left; max-width:220px;'>
             <p style='font-weight:600; color:#c62828; margin:6px 0;'>🔍 Tecnologia</p>
-            <p style='margin:4px 0; line-height:1.5;'>• Busca por palavras-chave<br>• PyPDF2 para PDFs<br>• Processamento leve<br>• Multilíngue (PT/EN)</p>
+            <p style='margin:4px 0; line-height:1.5;'>• Busca por palavras-chave<br>• PyPDF2 robusto<br>• Processamento leve<br>• Multilíngue (PT/EN)</p>
         </div>
         <div style='text-align:left; max-width:220px;'>
             <p style='font-weight:600; color:#c62828; margin:6px 0;'>💼 Aplicações</p>
             <p style='margin:4px 0; line-height:1.5;'>• Revisão de contratos<br>• Due diligence<br>• Compliance jurídico<br>• Gestão de riscos</p>
         </div>
         <div style='text-align:left; max-width:220px;'>
-            <p style='font-weight:600; color:#c62828; margin:6px 0;'>⚠️ Nota</p>
-            <p style='margin:4px 0; line-height:1.5;'>• Demo CPU<br>• Uso ético<br>• Open-source</p>
+            <p style='font-weight:600; color:#c62828; margin:6px 0;'>🛡️ Robustez</p>
+            <p style='margin:4px 0; line-height:1.5;'>• Detecção de PDFs escaneados<br>• Tratamento de erros<br>• Mensagens claras<br>• Fallback gracioso</p>
         </div>
     </div>
     
     <p style='margin:15px 0 0 0; padding-top:15px; border-top:1px dashed #bdbdbd; font-style:italic; color:#455a64; font-size:13px;'>
-        ✨ Sistema de análise jurídica com IA — diferencial competitivo para vagas de Engenheiro de IA/ML
+        ✨ Sistema de análise jurídica robusto — diferencial competitivo para vagas de Engenheiro de IA/ML
     </p>
 </div>
 """)
